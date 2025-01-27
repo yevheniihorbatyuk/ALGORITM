@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Optional, Deque, List, Dict, Any
+from typing import Optional, Deque, List, Dict, Any, Tuple
 import redis
 from datetime import datetime, timedelta
 from collections import deque

@@ -14,7 +14,7 @@ from .providers import (
     NewsProvider,
     TranslationProvider
 )
-from .config import get_settings, get_cache, get_rate_limiter
+from ..config import get_settings, get_cache, get_rate_limiter
 
 router = APIRouter()
 settings = get_settings()
