@@ -1,6 +1,6 @@
 from pydantic_settings import BaseSettings
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, List, Tuple, Dict, Any
 from src.caches import (
     BaseCache,
     RedisCache,
@@ -8,10 +8,14 @@ from src.caches import (
     MultiLevelCache
 )
 from src.rate_limit import (
+    BaseRateLimiter,
     InMemoryRateLimiter,
     RedisRateLimiter,
     TokenBucketRateLimiter,
-    SlidingWindowRateLimiter
+    SlidingWindowRateLimiter,
+    DistributedRateLimiter,
+    AdaptiveRateLimiter,
+    HierarchicalRateLimiter
 )
 
 class Settings(BaseSettings):
@@ -35,6 +39,25 @@ class Settings(BaseSettings):
     RATE_LIMIT_REQUESTS: int = 1000
     TOKEN_BUCKET_CAPACITY: int = 100
     TOKEN_BUCKET_REFILL_RATE: float = 1.0
+
+    # Distributed rate limit settings
+    REDIS_CLUSTER_NODES: List[Dict[str, Any]] = [
+        {"host": "localhost", "port": 6379}
+    ]
+
+
+    # Adaptive rate limit settings
+    ADAPTIVE_BASE_WINDOW: int = 60
+    ADAPTIVE_BASE_REQUESTS: int = 1000
+    ADAPTIVE_MIN_WINDOW: int = 1
+    ADAPTIVE_MAX_WINDOW: int = 3600
+    
+    # Hierarchical rate limit settings
+    HIERARCHICAL_LIMITS: List[Tuple[str, int, int]] = [
+        ("user", 60, 100),
+        ("ip", 60, 1000),
+        ("global", 60, 10000)
+    ]
     
     # API Provider settings
     WEATHER_API_KEY: str = ""
@@ -90,3 +113,29 @@ def get_rate_limiter() -> BaseRateLimiter:
             settings.RATE_LIMIT_REQUESTS
         )
     elif settings.RATE_LIMIT_TYPE == "token":
+        return TokenBucketRateLimiter(
+            capacity=settings.TOKEN_BUCKET_CAPACITY,
+            refill_rate=settings.TOKEN_BUCKET_REFILL_RATE
+        )
+    elif settings.RATE_LIMIT_TYPE == "distributed":
+        return DistributedRateLimiter(
+            redis_nodes=settings.REDIS_CLUSTER_NODES,
+            window_size=settings.RATE_LIMIT_WINDOW,
+            max_requests=settings.RATE_LIMIT_REQUESTS
+        )
+    elif settings.RATE_LIMIT_TYPE == "adaptive":
+        return AdaptiveRateLimiter(
+            base_window=settings.ADAPTIVE_BASE_WINDOW,
+            base_max_requests=settings.ADAPTIVE_BASE_REQUESTS,
+            min_window=settings.ADAPTIVE_MIN_WINDOW,
+            max_window=settings.ADAPTIVE_MAX_WINDOW
+        )
+    elif settings.RATE_LIMIT_TYPE == "hierarchical":
+        return HierarchicalRateLimiter(
+            limits=settings.HIERARCHICAL_LIMITS
+        )
+    else:  # "memory"
+        return InMemoryRateLimiter(
+            window_size=settings.RATE_LIMIT_WINDOW,
+            max_requests=settings.RATE_LIMIT_REQUESTS
+        )

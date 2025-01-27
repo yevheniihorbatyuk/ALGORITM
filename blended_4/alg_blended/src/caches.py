@@ -109,3 +109,4 @@ class MultiLevelCache(BaseCache):
     def clear(self) -> None:
         for cache in self.caches:
             cache.clear()
+
