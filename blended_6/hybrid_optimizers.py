@@ -118,7 +118,6 @@ class GAWithLocalSearch(HybridOptimizer):
     print("\nПродуктивність методів:")
     for method, improvement in metrics['method_performance'].items():
         print(f"{method}: {improvement:.2f}")
-етичний алгоритм
             evaluated = self.ga._evaluate_population(population,
                                                   initial_solution.problem)
             
