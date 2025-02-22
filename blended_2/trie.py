@@ -245,48 +245,77 @@ class TrieVisualizer:
         add_nodes(trie_instance.get_root())
         return G, node_positions
     
-    def visualize_trie(self, trie_instance, title="Trie Visualization", figsize=(12, 8)):
-        """Create and display visualization"""
-        # Create graph
-        G, pos = self.create_graph(trie_instance)
+    def visualize_trie(self, trie_instance, title="Trie Visualization", figsize=(12, 8), highlight_path=None, highlight_nodes=None):
+        """Creates and displays a visualization of the trie structure"""
+        G = nx.DiGraph()
+        self.node_count = 0
+        pos = {}
         
-        # Setup figure
+        def add_nodes(node, node_id="root", x=0, y=0, layer=0):
+            # Create current node
+            label = "ROOT" if node_id == "root" else node_id.split("_")[-1]
+            G.add_node(node_id, 
+                      label=label,
+                      is_end=node.is_end(),
+                      layer=layer)
+            pos[node_id] = (x, -layer)
+            
+            children = list(node.get_children().items())
+            width = max(len(children), 1) * 2
+            
+            for i, (char, child) in enumerate(children):
+                self.node_count += 1
+                child_id = f"node_{self.node_count}"
+                child_x = x - width/2 + i * 2 + 1
+                child_y = -layer - 1
+                
+                # Add child node
+                add_nodes(child, child_id, child_x, child_y, layer + 1)
+                # Add edge with character
+                G.add_edge(node_id, child_id, label=char)
+        
+        # Build the graph
+        add_nodes(trie_instance.get_root())
+        
+        # Create the plot
         plt.figure(figsize=figsize)
         plt.title(title, pad=20)
         
         # Draw nodes
-        node_colors = [G.nodes[node]['color'] for node in G.nodes()]
-        node_sizes = [3000 if node == "root" else 2000 for node in G.nodes()]
-        node_shapes = ['o' if not G.nodes[node]['is_end'] else 's' for node in G.nodes()]
+        node_colors = []
+        for node in G.nodes():
+            if highlight_nodes and node in highlight_nodes:
+                node_colors.append('yellow')
+            else:
+                node_colors.append('lightblue')
         
-        # Draw circular nodes
-        circular_nodes = [node for node, shape in zip(G.nodes(), node_shapes) if shape == 'o']
-        if circular_nodes:
-            nx.draw_networkx_nodes(G, pos, 
-                                 nodelist=circular_nodes,
-                                 node_color=[G.nodes[node]['color'] for node in circular_nodes],
-                                 node_size=2000,
-                                 node_shape='o')
+        nx.draw_networkx_nodes(G, pos, 
+                             node_color=node_colors,
+                             node_size=200)
         
-        # Draw square nodes (end of words)
-        square_nodes = [node for node, shape in zip(G.nodes(), node_shapes) if shape == 's']
-        if square_nodes:
-            nx.draw_networkx_nodes(G, pos, 
-                                 nodelist=square_nodes,
-                                 node_color=[G.nodes[node]['color'] for node in square_nodes],
-                                 node_size=2000,
-                                 node_shape='s')
+        # Draw edges
+        edge_colors = []
+        edge_widths = []
+        for u, v in G.edges():
+            if highlight_path and u in highlight_path and v in highlight_path:
+                edge_colors.append('red')
+                edge_widths.append(2.0)
+            else:
+                edge_colors.append('black')
+                edge_widths.append(1.0)
         
-        # Draw edges and labels
-        nx.draw_networkx_edges(G, pos)
+        nx.draw_networkx_edges(G, pos,
+                             edge_color=edge_colors,
+                             width=edge_widths)
+        
+        # Add labels
         nx.draw_networkx_labels(G, pos, 
                               labels=nx.get_node_attributes(G, 'label'))
         
-        # Draw edge labels
         edge_labels = nx.get_edge_attributes(G, 'label')
         nx.draw_networkx_edge_labels(G, pos, 
                                    edge_labels=edge_labels,
-                                   font_size=12)
+                                   font_size=10)
         
         plt.axis('off')
         plt.tight_layout()
