@@ -3,6 +3,7 @@ __pycache__/
 standart/test_5*
 .env
 .gitignore
+.cache*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

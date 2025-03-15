@@ -5,7 +5,8 @@ from src.caches import (
     BaseCache,
     RedisCache,
     MemcachedCache,
-    MultiLevelCache
+    MultiLevelCache,
+    MemoryCache
 )
 from src.rate_limit import (
     BaseRateLimiter,
@@ -18,9 +19,15 @@ from src.rate_limit import (
     HierarchicalRateLimiter
 )
 
+import redis
+import memcache
+
 class Settings(BaseSettings):
+
+    APP_NAME: str = "Service Aggregator API"
+
     # Cache settings
-    CACHE_TYPE: Literal["memory", "redis", "memcached", "multi"] = "memory"
+    CACHE_TYPE: Literal["memory", "redis", "memcached", "multi"] = "redis"
     CACHE_STRATEGY: Literal["lru", "ttl"] = "lru"
     CACHE_SIZE: int = 1000
     CACHE_TTL: int = 3600
@@ -34,10 +41,10 @@ class Settings(BaseSettings):
     MEMCACHED_SERVERS: list[str] = ["localhost:11211"]
     
     # Rate limit settings
-    RATE_LIMIT_TYPE: Literal["memory", "redis", "token"] = "memory"
-    RATE_LIMIT_WINDOW: int = 3600
-    RATE_LIMIT_REQUESTS: int = 1000
-    TOKEN_BUCKET_CAPACITY: int = 100
+    RATE_LIMIT_TYPE: Literal["memory", "redis", "token"] = "token"
+    RATE_LIMIT_WINDOW: int = 60
+    RATE_LIMIT_REQUESTS: int = 10
+    TOKEN_BUCKET_CAPACITY: int = 10
     TOKEN_BUCKET_REFILL_RATE: float = 1.0
 
     # Distributed rate limit settings

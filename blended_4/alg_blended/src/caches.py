@@ -27,8 +27,10 @@ class MemoryCache(BaseCache):
     def __init__(self, strategy: str = "lru", capacity: int = 1000, ttl_seconds: int = 3600):
         self.strategy = strategy
         if strategy == "lru":
-            self.cache = CacheToolsLRU(maxsize=capacity, ttl=ttl_seconds)
+            # LRUCache doesn't support ttl directly
+            self.cache = CacheToolsLRU(maxsize=capacity)
         else:
+            # TTLCache does support ttl
             self.cache = TTLCache(maxsize=capacity, ttl=ttl_seconds)
             
     def get(self, key: str) -> Optional[Any]:

@@ -3,6 +3,7 @@ from typing import List, Dict, Any, Optional
 import asyncio
 from datetime import datetime
 from enum import Enum
+import json
 
 from .caches import BaseCache
 from .rate_limit import BaseRateLimiter
@@ -14,7 +15,7 @@ from .providers import (
     NewsProvider,
     TranslationProvider
 )
-from ..config import get_settings, get_cache, get_rate_limiter
+from config import get_settings, get_cache, get_rate_limiter
 
 router = APIRouter()
 settings = get_settings()
@@ -37,11 +38,15 @@ class NewsCategory(str, Enum):
     SCIENCE = "science"
     HEALTH = "health"
 
-async def check_rate_limit(
-    request: Request,
-    rate_limiter: BaseRateLimiter = Depends(get_rate_limiter)
-) -> None:
+async def check_rate_limit(request: Request) -> None:
+    """
+    Check if the request is allowed by the rate limiter
+    """
     client_ip = request.client.host
+    
+    # Get rate limiter directly instead of as a dependency
+    rate_limiter = get_rate_limiter()
+    
     if not rate_limiter.is_allowed(client_ip):
         raise HTTPException(
             status_code=429,
@@ -91,7 +96,7 @@ async def get_zipcode(
     code: str,
     cache: BaseCache = Depends(get_cache),
 ):
-    await check_rate_limit(request)
+    await check_rate_limit(request)  # No Depends() here
     cache_key = f"zipcode:{country}:{code}"
     return await get_cached_response(
         cache_key,
@@ -166,13 +171,15 @@ async def multi_provider_request(
     request: Request,
     provider: str,
     action: str,
-    params: Dict[str, Any] = Query(...),
+    params_json: str = Query(...),
     cache: BaseCache = Depends(get_cache),
 ):
-    if provider not in providers:
+    try:
+        params = json.loads(params_json)
+    except json.JSONDecodeError:
         raise HTTPException(
-            status_code=404,
-            detail=f"Provider '{provider}' not found"
+            status_code=400,
+            detail="Invalid JSON in params_json query parameter"
         )
 
     await check_rate_limit(request)
@@ -184,38 +191,38 @@ async def multi_provider_request(
         cache
     )
 
-@router.get('/batch')
-async def batch_request(
-    request: Request,
-    requests: List[Dict[str, Any]] = Query(...),
-    cache: BaseCache = Depends(get_cache),
-):
-    await check_rate_limit(request)
+# @router.get('/batch')
+# async def batch_request(
+#     request: Request,
+#     requests: List[Dict[str, Any]] = Query(...),
+#     cache: BaseCache = Depends(get_cache),
+# ):
+#     await check_rate_limit(request)
     
-    results = []
-    for req in requests:
-        provider_name = req.get("provider")
-        if provider_name not in providers:
-            results.append({
-                "error": f"Provider '{provider_name}' not found"
-            })
-            continue
+#     results = []
+#     for req in requests:
+#         provider_name = req.get("provider")
+#         if provider_name not in providers:
+#             results.append({
+#                 "error": f"Provider '{provider_name}' not found"
+#             })
+#             continue
 
-        cache_key = f"batch:{provider_name}:{hash(str(sorted(req.items())))}"
-        try:
-            result = await get_cached_response(
-                cache_key,
-                providers[provider_name],
-                req.get("params", {}),
-                cache
-            )
-            results.append(result)
-        except Exception as e:
-            results.append({
-                "error": str(e)
-            })
+#         cache_key = f"batch:{provider_name}:{hash(str(sorted(req.items())))}"
+#         try:
+#             result = await get_cached_response(
+#                 cache_key,
+#                 providers[provider_name],
+#                 req.get("params", {}),
+#                 cache
+#             )
+#             results.append(result)
+#         except Exception as e:
+#             results.append({
+#                 "error": str(e)
+#             })
 
-    return {"results": results}
+#     return {"results": results}
 
 @router.get('/health')
 async def health_check():
